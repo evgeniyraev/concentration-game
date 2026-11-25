@@ -3,9 +3,25 @@ export function mountVideo({ createElement, createHotspot, isActive, onExit, pla
   video.playsInline = true;
   let failed = 0;
   let index = 0;
+  createHotspot('Return home', 0, 0, 1080, 1920, onExit);
+  const mute = createHotspot('Mute video', 770, 1720, 260, 130, () => {
+    video.muted = !video.muted;
+    updateMuteButton();
+  });
+  mute.classList.add('video-mute');
+
+  function updateMuteButton() {
+    const label = video.muted ? 'Unmute video' : 'Mute video';
+    mute.ariaLabel = label;
+    mute.title = label;
+    mute.textContent = video.muted ? 'Unmute' : 'Mute';
+  }
 
   function load() {
-    video.src = playlist[index].url;
+    const item = playlist[index];
+    video.muted = item.muted;
+    updateMuteButton();
+    video.src = item.url;
     video.play().catch(() => {});
   }
 
@@ -24,7 +40,6 @@ export function mountVideo({ createElement, createHotspot, isActive, onExit, pla
     else next();
   });
   load();
-  createHotspot('Return home', 0, 0, 1080, 1920, onExit);
 
   return () => {
     video.pause();

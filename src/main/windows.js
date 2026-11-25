@@ -21,6 +21,7 @@ function createWindowManager({ appRoot, isDevelopment, getUpdateStatus }) {
       show: false,
       webPreferences: {
         preload: path.join(appRoot, 'src', 'preload', 'game.js'),
+        autoplayPolicy: 'no-user-gesture-required',
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: true

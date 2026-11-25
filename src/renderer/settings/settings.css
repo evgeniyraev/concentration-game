@@ -95,6 +95,34 @@ button.secondary {
 
 button.secondary:hover { background: #f3d1dc; }
 
+.settings-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 18px;
+  padding: 5px;
+  border: 1px solid #d6ccba;
+  border-radius: 13px;
+  background: #e5dccd;
+}
+
+button.tab {
+  flex: 1;
+  min-height: 40px;
+  padding-inline: 8px;
+  border-color: transparent;
+  color: #625d50;
+  background: transparent;
+}
+
+button.tab:hover { background: #f5ede1; }
+
+button.tab.active {
+  border-color: #d6ccba;
+  color: #754052;
+  background: #fffaf1;
+  box-shadow: 0 2px 7px #5d513119;
+}
+
 button.icon {
   width: 38px;
   min-height: 38px;
@@ -159,15 +187,28 @@ select { flex: 1; padding: 8px 34px 8px 10px; }
   overflow-wrap: anywhere;
 }
 
-.quantity {
-  display: grid;
-  gap: 3px;
-  color: #6e685b;
-  font-size: 11px;
-  text-transform: uppercase;
+.preset-row, .reward-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.quantity input { width: 96px; }
+.preset-row { margin-bottom: 12px; }
+.preset-row select { min-width: 0; }
+.reward-row { flex-wrap: wrap; }
+.reward-actions { margin-left: auto; }
+
+.reward-fields {
+  flex: 1;
+  min-width: 270px;
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(95px, .65fr);
+  gap: 8px 12px;
+  align-items: end;
+}
+
+.video-mute-setting { flex: none; }
+.result-time-field { margin-top: 12px; }
 
 .check-row { gap: 11px; min-height: 40px; }
 
@@ -179,6 +220,110 @@ input[type="checkbox"] { width: 20px; height: 20px; accent-color: #a95870; }
 
 .number-with-unit input { width: 100px; }
 
+.switch-row {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.campaign-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 18px;
+}
+
+.stacked-field {
+  display: grid;
+  gap: 6px;
+  color: #5d584c;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.stacked-field input { width: 100%; }
+
+.stacked-field .number-with-unit input { flex: 1; }
+
+.chance-card {
+  margin: 22px 0 0;
+  padding: 18px;
+  border: 1px solid #dfd4c1;
+  border-radius: 14px;
+  background: #fffdf8;
+}
+
+.chance-card svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 12px;
+  overflow: visible;
+}
+
+.chart-grid line { stroke: #ded7ca; stroke-dasharray: 5 6; }
+
+.chart-axis { stroke: #817a6b; stroke-width: 2; }
+
+#chance-line {
+  fill: none;
+  stroke: #bd596f;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 7;
+}
+
+.chart-labels { fill: #6e685b; font-size: 13px; }
+
+.chance-marker {
+  fill: #fffdf8;
+  stroke: #a95870;
+  stroke-width: 3;
+  cursor: grab;
+  touch-action: none;
+}
+
+#chance-chart.dragging .chance-marker { cursor: grabbing; }
+
+#chance-editor {
+  min-width: 0;
+  margin: 18px 0 0;
+  padding: 12px;
+  border: 1px solid #dfd4c1;
+  border-radius: 12px;
+}
+
+#chance-editor legend { font-weight: 700; }
+
+.chance-point-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) 38px;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.chance-point-row input { width: 100%; }
+
+.chance-point-headings { color: #625d50; font-size: 13px; }
+
+#chance-editor button:disabled { opacity: .45; cursor: default; }
+
+.chance-error:not(:empty) {
+  margin: 0 0 8px;
+  color: #9a263c;
+}
+
+.chance-card figcaption, .campaign-note {
+  margin-top: 10px;
+  color: #706b5d;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+#hour-fields.disabled { opacity: .55; }
+
 .status {
   min-height: 20px;
   margin: 12px 0 0 31px;
@@ -186,8 +331,8 @@ input[type="checkbox"] { width: 20px; height: 20px; accent-color: #a95870; }
 }
 
 .form-message {
-  min-height: 22px;
-  margin: 0 0 10px;
+  flex-basis: 100%;
+  margin: 0;
   color: #9a263c;
   font-weight: 650;
 }
@@ -195,16 +340,20 @@ input[type="checkbox"] { width: 20px; height: 20px; accent-color: #a95870; }
 footer {
   position: sticky;
   bottom: 0;
-  justify-content: flex-end;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 16px;
   padding: 16px 0 4px;
   background: linear-gradient(#eee7d900, #eee7d9 30%);
 }
 
 footer button { min-width: 170px; }
+footer button:disabled { opacity: .45; cursor: default; }
 
 [hidden] { display: none !important; }
 
 @media (max-width: 680px) {
   form { padding: 22px; }
   section { padding: 18px; }
+  .campaign-grid { grid-template-columns: 1fr; }
 }

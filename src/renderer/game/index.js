@@ -1,6 +1,5 @@
 import { mountBoard } from './board.mjs';
 import { bindLongPress } from './long-press.mjs';
-import { chooseReward } from './model.mjs';
 import { mountVideo } from './video.mjs';
 
 const stage = document.querySelector('main');
@@ -17,15 +16,19 @@ const unavailableSettings = {
   gameSeconds: 120,
   rewards: [],
   videos: [],
-  videoAutoplay: { enabled: false, idleMinutes: 5 }
+  workingHours: { enabled: false },
+  rewardStatus: { active: false },
+  resultIdleSeconds: 60,
+  videoAutoplay: { enabled: false, idleSeconds: 300 }
 };
 
 let currentCleanup;
 let idleTimer;
 let page;
-let pageDelay;
 let playlist = [];
+let statusTimer;
 let settings = unavailableSettings;
+let startButton;
 
 function resize() {
   stage.style.setProperty('--scale', Math.min(innerWidth / 1080, innerHeight / 1920));
@@ -57,31 +60,26 @@ function createHotspot(name, x, y, width, height, action) {
   return button;
 }
 
-function scheduleVideoAutoplay() {
+function schedulePageIdle() {
   clearTimeout(idleTimer);
-  if (
-    page !== 'video' &&
-    playlist.length &&
-    settings.videoAutoplay?.enabled &&
-    settings.videoAutoplay.idleMinutes > 0
-  ) {
-    idleTimer = setTimeout(playVideo, settings.videoAutoplay.idleMinutes * 60 * 1000);
+  if (page === 'home' && playlist.length && settings.videoAutoplay.enabled) {
+    idleTimer = setTimeout(playVideo, settings.videoAutoplay.idleSeconds * 1000);
+  } else if ((page === 'win' || page === 'lose') && settings.resultIdleSeconds > 0) {
+    idleTimer = setTimeout(home, settings.resultIdleSeconds * 1000);
   }
 }
 
 function setPage(nextPage) {
   currentCleanup?.();
   currentCleanup = undefined;
-  clearTimeout(pageDelay);
-  pageDelay = undefined;
   page = nextPage;
   stage.replaceChildren();
   stage.style.backgroundImage = screens[nextPage] ? `url("${asset(screens[nextPage])}")` : 'none';
-  scheduleVideoAutoplay();
+  schedulePageIdle();
 }
 
-function stock() {
-  return settings.rewards.reduce((sum, reward) => sum + reward.quantity, 0);
+function canStart() {
+  return settings.configured && settings.rewardStatus.active;
 }
 
 function openSettings() {
@@ -89,26 +87,22 @@ function openSettings() {
   else window.alert('Settings are available in the Electron application.');
 }
 
-function home(showOutOfStock = false) {
+function home() {
   setPage('home');
-  const startButton = createHotspot('Start game', 262, 486, 556, 170, start);
-  if (!settings.configured || !stock()) {
-    startButton.disabled = true;
-    startButton.classList.add('gray');
-  }
-  const settingsButton = createHotspot('Hold for 10 seconds to open settings', 0, 0, 140, 134, () => {});
+  startButton = createHotspot('Start game', 262, 486, 556, 170, start);
+  updateStartButton();
+  const settingsButton = createHotspot('Open settings', 0, 0, 140, 134, () => {});
+  settingsButton.title = 'Hold for 10 seconds to open settings';
   settingsButton.classList.add('settings-hotspot');
   currentCleanup = bindLongPress(settingsButton, openSettings);
   videoButton();
-  if (showOutOfStock && settings.configured && !stock()) outOfStock();
 }
 
-function outOfStock() {
-  const overlay = createElement('div', stage, 'shade');
-  const box = createElement('div', overlay, 'panel stock');
-  createElement('h1', box, '', 'OUT OF STOCK');
-  const agree = createElement('button', box, '', 'AGREE');
-  agree.addEventListener('click', () => overlay.remove());
+function updateStartButton() {
+  const available = canStart();
+  startButton.disabled = !available;
+  startButton.classList.toggle('gray', !available);
+  startButton.title = available ? 'Start game' : 'Game unavailable';
 }
 
 function videoButton() {
@@ -134,7 +128,7 @@ function playVideo() {
 }
 
 function start() {
-  if (!settings.configured || !stock()) return home(true);
+  if (!canStart()) return home();
   setPage('board');
   currentCleanup = mountBoard({
     asset,
@@ -151,51 +145,60 @@ function start() {
 
 async function result(won) {
   if (page !== 'board') return;
-  setPage(won ? 'win' : 'lose');
-  if (won) {
-    const reward = chooseReward(settings.rewards);
-    if (reward) {
-      const image = createElement('img', stage, 'gift');
-      image.src = reward.url;
-      image.alt = 'Your reward';
-      if (api) {
-        try {
-          settings = await api.claimReward(reward.id);
-          playlist = settings.videos;
-        } catch {
-          reward.quantity = Math.max(0, reward.quantity - 1);
-        }
-      } else {
-        reward.quantity -= 1;
-      }
+  setPage('result-pending');
+  let reward;
+  if (api && won) {
+    try {
+      const award = await api.drawReward();
+      reward = award.reward;
+      applySettings(award.settings);
+    } catch {
+      // Only show an award after the main process has saved it.
     }
   }
-  const leave = () => home(won && !stock());
-  createHotspot('Home', 10, 4, 140, 134, leave);
-  if (won && !stock()) {
-    createHotspot('Acknowledge final reward', 140, 300, 810, 1070, leave);
-    pageDelay = setTimeout(leave, 7000);
+
+  setPage(reward ? 'win' : 'lose');
+  if (reward) {
+    const image = createElement('img', stage, 'gift');
+    image.src = reward.url;
+    image.alt = reward.name;
   }
+  createHotspot('Home', 10, 4, 140, 134, home);
   videoButton();
 }
 
 function applySettings(nextSettings) {
   settings = nextSettings;
   playlist = settings.videos;
-  scheduleVideoAutoplay();
   if (page === 'home') home();
+  else schedulePageIdle();
+}
+
+async function refreshWorkingHours() {
+  if (page !== 'home' || !settings.workingHours.enabled) return;
+  const previous = settings;
+  const next = await api.getSettings();
+  if (page !== 'home' || settings !== previous) return;
+  settings = next;
+  updateStartButton();
 }
 
 async function load() {
   if (api) {
     applySettings(await api.getSettings());
     api.onSettingsChanged(applySettings);
+    statusTimer = setInterval(() => refreshWorkingHours().catch(() => {}), 5_000);
   }
   home();
 }
 
 window.addEventListener('resize', resize);
-window.addEventListener('pointerdown', scheduleVideoAutoplay, { passive: true });
-window.addEventListener('keydown', scheduleVideoAutoplay);
+for (const interaction of ['pointerdown', 'pointermove', 'keydown', 'wheel']) {
+  window.addEventListener(interaction, schedulePageIdle, { passive: true });
+}
+window.addEventListener('unload', () => {
+  clearTimeout(idleTimer);
+  clearInterval(statusTimer);
+});
 resize();
 load().catch(() => home());

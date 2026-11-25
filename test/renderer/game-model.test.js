@@ -16,13 +16,8 @@ test('deck contains two of each face and one of every back', async () => {
   assert.deepEqual([...deck.backs].sort((left, right) => left - right), [...Array(20).keys()]);
 });
 
-test('timer formatting and reward selection are deterministic at the boundary', async () => {
-  const { chooseReward, formatSeconds, remainingSeconds } = await model;
+test('timer formatting is deterministic at the boundary', async () => {
+  const { formatSeconds, remainingSeconds } = await model;
   assert.equal(remainingSeconds(10_001, 10_000), 1);
   assert.equal(formatSeconds(125), '02:05');
-  assert.equal(chooseReward([
-    { id: 'empty', quantity: 0 },
-    { id: 'available', quantity: 1 }
-  ], () => 0).id, 'available');
-  assert.equal(chooseReward([{ id: 'empty', quantity: 0 }], () => 0), undefined);
 });

@@ -36,8 +36,15 @@ The updater checks ten seconds after launch and then every four hours. When the 
 
 Settings and reward stock live in Electron’s per-user `userData` directory, not in browser storage. Images and videos selected in Settings are copied into its `media` directory so they remain available after the original files move. The defaults are:
 
-- updates enabled, patch releases only;
+- updates enabled for minor and patch releases;
 - Windows automatic startup disabled;
-- video autoplay disabled, with a five-minute inactivity threshold;
-- two-minute game time.
+- video autoplay disabled, with a five-minute Home screen wait;
+- two-minute game time and a 60-second idle timeout on the result screen;
+- working hours set to 28–29 November 2026, 11:00–17:00 local time;
+- the medallion is the sole configured reward, with 70 in stock and 70 added on each subsequent scheduled day;
+- the reward chance stays at 0% through minute 7 and reaches 100% at minute 13 after opening or the last award.
+
+On completion, a game rolls against the **Reward chances** curve. A successful draw picks one unit from all remaining stock. Configure stock and per-reward daily restock in **Rewards**. This tab also controls win logging and exports award timestamps in UTC and prize names to CSV. Existing explicit update preferences and saved curves carry forward on upgrade.
+
+For a guaranteed award while stock remains, set a single curve point at 0 minutes and 100%. Upgrading from a disabled curve uses this setting automatically.
 

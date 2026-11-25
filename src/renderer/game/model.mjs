@@ -24,8 +24,3 @@ export function formatSeconds(seconds) {
     .map((value) => String(value).padStart(2, '0'))
     .join(':');
 }
-
-export function chooseReward(rewards, random = Math.random) {
-  const choices = rewards.filter((reward) => reward.quantity > 0);
-  return choices[Math.floor(random() * choices.length)];
-}
