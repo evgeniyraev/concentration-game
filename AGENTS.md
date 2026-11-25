@@ -38,7 +38,11 @@ Supporting modules are deliberately independent of Electron where practical:
 
 ## Branch and merge workflow
 
-- At the start of every work item, before editing files, update from `main` and create a dedicated `fix/<short-description>` branch for a correction or a `feature/<short-description>` branch for new behavior. Never begin implementation directly on `main`.
+- At the start of each new work item, before editing files, run these commands in order:
+  1. Switch to `main` with `git switch main`.
+  2. Pull the latest `main` from GitHub with `git pull --ff-only origin main`.
+  3. Create and switch to a work branch from the updated `main`. Use `git switch -c fix/<short-description>` for a correction or `git switch -c feature/<short-description>` for new behavior.
+- Preserve any existing local changes. If switching to `main` or pulling fails, resolve the issue before creating the work branch.
 - Keep the source branch prefix accurate: `fix/*` produces a patch release and `feature/*` produces a minor release.
 - A major release is an explicit maintainer decision. Add the `version:major` label to the PR before marking it ready; this overrides the normal patch or minor bump.
 - When the PR has been reviewed and is ready to merge, add the `ready-to-merge` label. The version workflow commits the version change to the PR, squash-merges it into `main`, and tags the resulting commit. Do not manually bump the version, merge the PR, or create the release tag.

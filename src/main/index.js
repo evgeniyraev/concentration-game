@@ -39,7 +39,10 @@ if (!hasSingleInstanceLock) {
 
     registerIpc({ app, dialog, ipcMain, store, updater, windows });
     applyStartupPreference(app, store.get());
-    windows.createMainWindow();
+    const mainWindow = windows.createMainWindow();
+    if (!store.get().configured) {
+      mainWindow.webContents.once('did-finish-load', () => windows.createSettingsWindow());
+    }
     updater.start();
 
     app.on('activate', () => {

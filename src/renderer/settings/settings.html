@@ -16,45 +16,71 @@
       <span id="version"></span>
     </header>
 
-    <section>
-      <h2>Game</h2>
-      <label class="field compact">
-        <span>Game time</span>
-        <input id="game-time" inputmode="numeric" pattern="[0-9]{1,3}:[0-5][0-9]" placeholder="02:00" required>
-        <small>Minutes and seconds (mm:ss)</small>
-      </label>
-    </section>
+    <nav class="settings-tabs" role="tablist" aria-label="Settings categories">
+      <button id="rewards-tab" class="tab active" type="button" role="tab" aria-selected="true" aria-controls="rewards-panel">Rewards</button>
+      <button id="chances-tab" class="tab" type="button" role="tab" aria-selected="false" aria-controls="chances-panel" tabindex="-1">Reward chances</button>
+      <button id="hours-tab" class="tab" type="button" role="tab" aria-selected="false" aria-controls="hours-panel" tabindex="-1">Working hours</button>
+      <button id="videos-tab" class="tab" type="button" role="tab" aria-selected="false" aria-controls="videos-panel" tabindex="-1">Videos</button>
+      <button id="app-tab" class="tab" type="button" role="tab" aria-selected="false" aria-controls="app-panel" tabindex="-1">App</button>
+    </nav>
 
+    <div id="rewards-panel" class="tab-panel" role="tabpanel" aria-labelledby="rewards-tab">
     <section>
       <div class="section-heading">
         <div>
           <h2>Rewards</h2>
-          <p>The game is unavailable when all quantities reach zero.</p>
+          <p>Each remaining unit has an equal chance of being picked. Daily restock adds units on later working days and carries unused stock forward.</p>
         </div>
-        <button id="add-reward" type="button" class="secondary">Add reward</button>
+        <button id="add-reward" type="button" class="secondary">Import reward</button>
+      </div>
+      <div class="preset-row">
+        <select id="reward-preset" aria-label="Bundled reward"></select>
+        <button id="add-preset" type="button" class="secondary" disabled>Add bundled reward</button>
       </div>
       <div id="reward-list" class="item-list"></div>
     </section>
+    <section>
+      <div class="section-heading">
+        <div>
+          <h2>Reward log</h2>
+          <p id="reward-log-status" aria-live="polite"></p>
+        </div>
+        <button id="export-reward-log" type="button" class="secondary" disabled>Export CSV</button>
+      </div>
+      <label class="check-row">
+        <input id="log-reward-wins" type="checkbox">
+        <span>Log reward wins</span>
+      </label>
+    </section>
+    </div>
 
+    <div id="videos-panel" class="tab-panel" role="tabpanel" aria-labelledby="videos-tab" hidden>
     <section>
       <div class="section-heading">
         <div>
           <h2>Videos</h2>
-          <p>Videos play in this order and loop until the screen is touched.</p>
+          <p>Videos loop in this order. Set the starting audio for each video.</p>
         </div>
         <button id="add-videos" type="button" class="secondary">Add videos</button>
       </div>
       <div id="video-list" class="item-list"></div>
-      <label class="check-row">
-        <input id="video-autoplay" type="checkbox">
-        <span>Automatically play videos after inactivity</span>
+    </section>
+    </div>
+
+    <div id="app-panel" class="tab-panel" role="tabpanel" aria-labelledby="app-tab" hidden>
+    <section>
+      <h2>Game</h2>
+      <label class="field compact">
+        <span>Game time</span>
+        <input id="game-time" inputmode="numeric" pattern="[0-9]{1,4}:[0-5][0-9]" placeholder="02:00" required>
+        <small>Minutes and seconds (mm:ss)</small>
       </label>
-      <label class="field compact indent" id="idle-field">
-        <span>Inactivity time</span>
-        <span class="number-with-unit"><input id="idle-minutes" type="number" min="1" max="1440" step="1" required><span>minutes</span></span>
+      <label class="field compact result-time-field">
+        <span>Return home after</span>
+        <span class="number-with-unit"><input id="result-idle" type="number" min="0" max="3600" step="1" required><span>seconds</span></span>
+        <small>Applies to an idle result screen. Set to 0 to disable.</small>
       </label>
     </section>
-
     <section>
       <h2>Application</h2>
       <label class="check-row">
@@ -79,12 +105,105 @@
       </label>
       <p id="update-status" class="status" aria-live="polite"></p>
     </section>
+    </div>
 
-    <p id="form-message" class="form-message" aria-live="polite"></p>
+    <div id="hours-panel" class="tab-panel" role="tabpanel" aria-labelledby="hours-tab" hidden>
+      <section>
+        <div class="section-heading">
+          <div>
+            <h2>Working hours</h2>
+            <p>Limit game play and daily restocking to a date range and daily hours on this kiosk.</p>
+          </div>
+          <label class="switch-row">
+            <input id="hours-enabled" type="checkbox">
+            <span>Use schedule</span>
+          </label>
+        </div>
+          <div id="hour-fields" class="campaign-grid">
+            <label class="stacked-field">
+              <span>First date</span>
+              <input id="start-date" type="date" required>
+            </label>
+            <label class="stacked-field">
+              <span>Last date</span>
+              <input id="end-date" type="date" required>
+            </label>
+            <label class="stacked-field">
+              <span>Daily start</span>
+              <input id="start-time" type="time" required>
+            </label>
+            <label class="stacked-field">
+              <span>Daily end</span>
+              <input id="end-time" type="time" required>
+            </label>
+          </div>
+      </section>
+      <section>
+        <h2>Home screen</h2>
+        <label class="check-row">
+          <input id="video-autoplay" type="checkbox">
+          <span>Play videos automatically</span>
+        </label>
+        <label class="field compact indent" id="idle-field">
+          <span>Home screen wait</span>
+          <span class="number-with-unit"><input id="idle-seconds" type="number" min="1" max="86400" step="1" required><span>seconds</span></span>
+        </label>
+      </section>
+    </div>
+
+    <div id="chances-panel" class="tab-panel" role="tabpanel" aria-labelledby="chances-tab" hidden>
+      <section>
+        <div class="section-heading">
+          <div>
+            <h2>Reward chances</h2>
+            <p>To award a prize after every completed game while stock lasts, use a single point at 0 minutes and 100%.</p>
+          </div>
+        </div>
+          <figure class="chance-card">
+            <p>Drag a point on the graph or edit its minute and percentage below.</p>
+            <svg id="chance-chart" viewBox="0 0 640 280" role="img" aria-label="Reward chance by elapsed minute">
+              <g class="chart-grid">
+                <line x1="70" y1="30" x2="610" y2="30"></line>
+                <line x1="70" y1="120" x2="610" y2="120"></line>
+                <line x1="70" y1="210" x2="610" y2="210"></line>
+              </g>
+              <line class="chart-axis" x1="70" y1="30" x2="70" y2="210"></line>
+              <line class="chart-axis" x1="70" y1="210" x2="610" y2="210"></line>
+              <polyline id="chance-line"></polyline>
+              <g id="chance-markers"></g>
+              <g class="chart-labels">
+                <text x="58" y="35" text-anchor="end">100%</text>
+                <text x="58" y="125" text-anchor="end">50%</text>
+                <text x="58" y="215" text-anchor="end">0%</text>
+                <text x="70" y="242" text-anchor="middle">0</text>
+                <text id="chance-mid-label" x="340" y="242" text-anchor="middle">10</text>
+                <text id="chance-max-label" x="610" y="242" text-anchor="middle">20 min</text>
+                <text x="340" y="270" text-anchor="middle">Minutes since opening or last award</text>
+              </g>
+            </svg>
+            <figcaption>The chance changes linearly between points. The first and last percentages also apply before and after the curve.</figcaption>
+          </figure>
+
+          <fieldset id="chance-editor">
+            <legend>Curve points</legend>
+            <div class="chance-point-row chance-point-headings" aria-hidden="true">
+              <span>Elapsed minutes</span><span>Chance (%)</span>
+            </div>
+            <div id="chance-points"></div>
+            <p id="chance-error" class="chance-error" aria-live="polite"></p>
+            <button id="add-chance-point" class="secondary" type="button" disabled>Add point</button>
+          </fieldset>
+
+          <p id="reward-status" class="campaign-note" aria-live="polite"></p>
+      </section>
+    </div>
+
     <footer>
-      <button id="save" type="submit">Save settings</button>
+      <p id="form-message" class="form-message" aria-live="polite"></p>
+      <button id="reset-defaults" type="button" class="secondary" disabled>Reset to default</button>
+      <button id="save" type="submit" disabled>Save settings</button>
     </footer>
   </form>
-  <script src="settings.js"></script>
+  <script type="module" src="settings.js"></script>
 </body>
 </html>
