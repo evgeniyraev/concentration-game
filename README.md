@@ -1,6 +1,6 @@
 # Max & Mila’s World
 
-An Electron application for the concentration game. The installed Windows app starts maximized with its native window frame visible. Its settings are a separate native Electron window, opened from the invisible area in the top-left corner of the home screen. Settings also open automatically on a new installation.
+An Electron application for the concentration game. The installed Windows app starts maximized with its native window frame visible. Open the separate Settings window with **Ctrl+,** on Windows or **Command+,** on macOS while the game window is focused. The invisible area in the top-left corner of the home screen also opens Settings. Settings open automatically on a new installation.
 
 ## Develop locally
 
