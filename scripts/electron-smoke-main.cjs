@@ -144,7 +144,12 @@ app.whenReady().then(async () => {
     if (!windows.settings.isDestroyed()) {
       await once(windows.settings, 'closed', { signal: AbortSignal.timeout(3000) });
     }
-    await game.executeJavaScript('window.gameApp.openSettings()');
+    windows.game.focus();
+    game.sendInputEvent({
+      type: 'keyDown',
+      keyCode: ',',
+      modifiers: [process.platform === 'darwin' ? 'meta' : 'control']
+    });
     const chanceSettings = await waitForWindows();
     const singlePoint = await chanceSettings.settings.webContents.executeJavaScript(`(async () => {
       await window.settingsApp.getSettings();

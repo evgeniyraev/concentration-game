@@ -35,6 +35,16 @@ function createWindowManager({ appRoot, isDevelopment, getUpdateStatus }) {
     mainWindow.on('closed', () => {
       mainWindow = null;
     });
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+      if (input.type !== 'keyDown' || input.key !== ',' || input.isAutoRepeat || input.shift || input.alt) return;
+      const hasShortcutModifier = process.platform === 'darwin'
+        ? input.meta && !input.control
+        : input.control && !input.meta;
+      if (!hasShortcutModifier) return;
+
+      event.preventDefault();
+      createSettingsWindow();
+    });
     mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     return mainWindow;
   }
