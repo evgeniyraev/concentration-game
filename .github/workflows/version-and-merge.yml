@@ -1,0 +1,210 @@
+name: Version, squash, and tag ready PR
+
+on:
+  pull_request_target:
+    types: [labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+# All version calculations and merges into main share this lock. A later PR only
+# calculates its version after the preceding PR has been merged and tagged.
+concurrency:
+  group: main-version-and-merge
+  cancel-in-progress: false
+
+jobs:
+  version-merge-tag:
+    if: >-
+      github.event.label.name == 'ready-to-merge' &&
+      github.event.pull_request.base.ref == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      # This checkout supplies trusted automation code from main. PR code is
+      # checked out separately and is edited with Node.js, but never executed.
+      - name: Check out trusted automation
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          path: automation
+
+      - name: Inspect current pull request state
+        id: pr
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          pr="$(gh api "repos/$REPOSITORY/pulls/$PR_NUMBER")"
+          merged="$(jq -r '.merged' <<<"$pr")"
+          state="$(jq -r '.state' <<<"$pr")"
+          head_repo="$(jq -r '.head.repo.full_name // ""' <<<"$pr")"
+          head_ref="$(jq -r '.head.ref' <<<"$pr")"
+          head_sha="$(jq -r '.head.sha' <<<"$pr")"
+          merge_sha="$(jq -r '.merge_commit_sha // ""' <<<"$pr")"
+          labels="$(jq -c '[.labels[].name]' <<<"$pr")"
+
+          if [[ "$merged" != "true" && "$state" != "open" ]]; then
+            echo "PR #$PR_NUMBER is closed without being merged" >&2
+            exit 1
+          fi
+          if [[ "$merged" != "true" && "$head_repo" != "$REPOSITORY" ]]; then
+            echo "The version workflow can only update branches in $REPOSITORY" >&2
+            exit 1
+          fi
+
+          printf 'merged=%s\n' "$merged" >> "$GITHUB_OUTPUT"
+          printf 'head_repo=%s\n' "$head_repo" >> "$GITHUB_OUTPUT"
+          printf 'head_ref=%s\n' "$head_ref" >> "$GITHUB_OUTPUT"
+          printf 'head_sha=%s\n' "$head_sha" >> "$GITHUB_OUTPUT"
+          printf 'merge_sha=%s\n' "$merge_sha" >> "$GITHUB_OUTPUT"
+          printf 'labels=%s\n' "$labels" >> "$GITHUB_OUTPUT"
+
+      - name: Check out the current PR head
+        if: steps.pr.outputs.merged != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.pr.outputs.head_repo }}
+          ref: ${{ steps.pr.outputs.head_sha }}
+          fetch-depth: 0
+          path: pr
+
+      - name: Calculate and write the version
+        if: steps.pr.outputs.merged != 'true'
+        id: version
+        shell: bash
+        env:
+          HEAD_REF: ${{ steps.pr.outputs.head_ref }}
+          LABELS: ${{ steps.pr.outputs.labels }}
+        run: |
+          set -euo pipefail
+          node automation/.github/scripts/prepare-pr-version.cjs \
+            automation/package.json \
+            pr \
+            "$HEAD_REF" \
+            "$LABELS" \
+            "$GITHUB_OUTPUT"
+
+      - name: Commit the version to the PR
+        if: steps.pr.outputs.merged != 'true'
+        id: commit
+        shell: bash
+        env:
+          HEAD_REF: ${{ steps.pr.outputs.head_ref }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          git -C pr config user.name "github-actions[bot]"
+          git -C pr config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C pr add package.json package-lock.json
+
+          if git -C pr diff --cached --quiet; then
+            echo "Version $VERSION is already present on the PR"
+          else
+            git -C pr commit -m "chore(release): bump version to $VERSION"
+            git -C pr push origin "HEAD:refs/heads/$HEAD_REF"
+          fi
+
+          printf 'head_sha=%s\n' "$(git -C pr rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Squash merge when branch protection permits it
+        if: steps.pr.outputs.merged != 'true'
+        id: merge
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_HEAD: ${{ steps.commit.outputs.head_sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          deadline=$((SECONDS + 1800))
+
+          while (( SECONDS < deadline )); do
+            pr="$(gh api "repos/$REPOSITORY/pulls/$PR_NUMBER")"
+            if [[ "$(jq -r '.merged' <<<"$pr")" == "true" ]]; then
+              merge_sha="$(jq -r '.merge_commit_sha' <<<"$pr")"
+              printf 'merge_sha=%s\n' "$merge_sha" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            current_head="$(jq -r '.head.sha' <<<"$pr")"
+            if [[ "$current_head" != "$EXPECTED_HEAD" ]]; then
+              echo "PR head changed after the version commit; apply ready-to-merge again after review" >&2
+              exit 1
+            fi
+
+            if response="$(gh api \
+              --method PUT \
+              "repos/$REPOSITORY/pulls/$PR_NUMBER/merge" \
+              -f merge_method=squash \
+              -f sha="$EXPECTED_HEAD" 2>&1)"; then
+              if [[ "$(jq -r '.merged' <<<"$response")" == "true" ]]; then
+                printf 'merge_sha=%s\n' "$(jq -r '.sha' <<<"$response")" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+            fi
+
+            echo "PR is not mergeable yet; waiting for required checks or reviews"
+            sleep 15
+          done
+
+          echo "Timed out waiting for PR #$PR_NUMBER to become mergeable" >&2
+          exit 1
+
+      - name: Resolve the version and exact merged commit
+        id: release
+        shell: bash
+        env:
+          ALREADY_MERGED: ${{ steps.pr.outputs.merged }}
+          EXISTING_MERGE_SHA: ${{ steps.pr.outputs.merge_sha }}
+          NEW_MERGE_SHA: ${{ steps.merge.outputs.merge_sha }}
+          EXPECTED_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ "$ALREADY_MERGED" == "true" ]]; then
+            merge_sha="$EXISTING_MERGE_SHA"
+          else
+            merge_sha="$NEW_MERGE_SHA"
+          fi
+
+          git -C automation fetch origin main --tags
+          version="$(git -C automation show "$merge_sha:package.json" | jq -r '.version')"
+          if [[ ! "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Merged package version is not MAJOR.MINOR.PATCH: $version" >&2
+            exit 1
+          fi
+          if [[ "$ALREADY_MERGED" != "true" && "$version" != "$EXPECTED_VERSION" ]]; then
+            echo "Merged version $version does not match expected version $EXPECTED_VERSION" >&2
+            exit 1
+          fi
+
+          printf 'merge_sha=%s\n' "$merge_sha" >> "$GITHUB_OUTPUT"
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+          printf 'tag=v%s\n' "$version" >> "$GITHUB_OUTPUT"
+
+      - name: Tag the squash commit
+        shell: bash
+        env:
+          MERGE_SHA: ${{ steps.release.outputs.merge_sha }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if git -C automation ls-remote --exit-code --tags origin "refs/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            git -C automation fetch origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+            tagged_sha="$(git -C automation rev-list -n 1 "$RELEASE_TAG")"
+            if [[ "$tagged_sha" != "$MERGE_SHA" ]]; then
+              echo "$RELEASE_TAG already points to $tagged_sha instead of $MERGE_SHA" >&2
+              exit 1
+            fi
+            echo "$RELEASE_TAG already points to the squash commit"
+          else
+            git -C automation tag "$RELEASE_TAG" "$MERGE_SHA"
+            git -C automation push origin "refs/tags/$RELEASE_TAG"
+          fi

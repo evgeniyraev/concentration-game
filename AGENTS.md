@@ -36,6 +36,14 @@ Supporting modules are deliberately independent of Electron where practical:
 6. **Release with semantic versions.** Tags use `vMAJOR.MINOR.PATCH`. Update policy means patch = same major/minor, minor = same major, and major = any newer release.
 7. **Test policy and validation changes.** Pure logic belongs in focused modules and needs `node:test` coverage. Before handing off, run `npm test` and at least a packaging smoke check when dependencies and platform permit.
 
+## Branch and merge workflow
+
+- At the start of every work item, before editing files, update from `main` and create a dedicated `fix/<short-description>` branch for a correction or a `feature/<short-description>` branch for new behavior. Never begin implementation directly on `main`.
+- Keep the source branch prefix accurate: `fix/*` produces a patch release and `feature/*` produces a minor release.
+- A major release is an explicit maintainer decision. Add the `version:major` label to the PR before marking it ready; this overrides the normal patch or minor bump.
+- When the PR has been reviewed and is ready to merge, add the `ready-to-merge` label. The version workflow commits the version change to the PR, squash-merges it into `main`, and tags the resulting commit. Do not manually bump the version, merge the PR, or create the release tag.
+- Keep squash merging enabled and do not configure the version-and-merge workflow itself as a required status check, because it remains active until the merge and tag are complete.
+
 ## Change guidance
 
 - Do not add direct filesystem, updater, shell, or window-management access to renderer code.

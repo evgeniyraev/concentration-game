@@ -2,6 +2,12 @@
 
 const crypto = require('node:crypto');
 const path = require('node:path');
+const {
+  dateSerial,
+  emptyCampaignState,
+  normalizeCampaignState,
+  timeMinutes
+} = require('../reward-campaign');
 
 const UPDATE_SCOPES = new Set(['patch', 'minor', 'major']);
 const BUNDLED_VIDEOS = [
@@ -14,8 +20,18 @@ function id() {
 }
 
 function defaultSettings() {
+  const rewardCampaign = {
+    enabled: true,
+    startDate: '2026-11-28',
+    endDate: '2026-11-29',
+    startTime: '11:00',
+    endTime: '17:00',
+    guaranteeMinutes: 20,
+    dailyMedallions: 70,
+    dailySmiles: 1000
+  };
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     configured: false,
     gameSeconds: 120,
     rewards: Array.from({ length: 8 }, (_, index) => ({
@@ -36,7 +52,9 @@ function defaultSettings() {
     videoAutoplay: {
       enabled: false,
       idleMinutes: 5
-    }
+    },
+    rewardCampaign,
+    rewardCampaignState: emptyCampaignState(rewardCampaign)
   };
 }
 
@@ -51,6 +69,14 @@ function safeSource(value, kind) {
   if (value.startsWith(`bundled:${prefix}`) && !value.includes('..')) return value;
   if (value.startsWith(`user:${kind === 'reward' ? 'images' : 'videos'}/`) && !value.includes('..')) return value;
   return null;
+}
+
+function date(value, fallback) {
+  return typeof value === 'string' && dateSerial(value) ? value : fallback;
+}
+
+function time(value, fallback) {
+  return typeof value === 'string' && timeMinutes(value) >= 0 ? value : fallback;
 }
 
 function normalizeSettings(value) {
@@ -77,9 +103,49 @@ function normalizeSettings(value) {
     };
   }).filter(Boolean) : defaults.videos;
   const scope = UPDATE_SCOPES.has(input.updates?.scope) ? input.updates.scope : defaults.updates.scope;
+  const campaignInput = input.rewardCampaign && typeof input.rewardCampaign === 'object'
+    ? input.rewardCampaign
+    : {};
+  let startDate = date(campaignInput.startDate, defaults.rewardCampaign.startDate);
+  let endDate = date(campaignInput.endDate, defaults.rewardCampaign.endDate);
+  let startTime = time(campaignInput.startTime, defaults.rewardCampaign.startTime);
+  let endTime = time(campaignInput.endTime, defaults.rewardCampaign.endTime);
+  if (dateSerial(endDate) < dateSerial(startDate)) {
+    startDate = defaults.rewardCampaign.startDate;
+    endDate = defaults.rewardCampaign.endDate;
+  }
+  if (timeMinutes(endTime) <= timeMinutes(startTime)) {
+    startTime = defaults.rewardCampaign.startTime;
+    endTime = defaults.rewardCampaign.endTime;
+  }
+  const rewardCampaign = {
+    enabled: campaignInput.enabled !== false,
+    startDate,
+    endDate,
+    startTime,
+    endTime,
+    guaranteeMinutes: integer(
+      Number(campaignInput.guaranteeMinutes),
+      defaults.rewardCampaign.guaranteeMinutes,
+      1,
+      1440
+    ),
+    dailyMedallions: integer(
+      Number(campaignInput.dailyMedallions),
+      defaults.rewardCampaign.dailyMedallions,
+      0,
+      999999
+    ),
+    dailySmiles: integer(
+      Number(campaignInput.dailySmiles),
+      defaults.rewardCampaign.dailySmiles,
+      0,
+      999999
+    )
+  };
 
-  return {
-    schemaVersion: 1,
+  const settings = {
+    schemaVersion: 2,
     configured: input.configured === true,
     gameSeconds: integer(Number(input.gameSeconds), defaults.gameSeconds, 1, 24 * 60 * 60),
     rewards,
@@ -92,8 +158,11 @@ function normalizeSettings(value) {
     videoAutoplay: {
       enabled: input.videoAutoplay?.enabled === true,
       idleMinutes: integer(Number(input.videoAutoplay?.idleMinutes), defaults.videoAutoplay.idleMinutes, 1, 1440)
-    }
+    },
+    rewardCampaign
   };
+  settings.rewardCampaignState = normalizeCampaignState(input.rewardCampaignState, rewardCampaign);
+  return settings;
 }
 
 module.exports = { defaultSettings, normalizeSettings };
