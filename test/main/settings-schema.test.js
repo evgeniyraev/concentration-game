@@ -12,6 +12,10 @@ test('new installations are unconfigured with safe app defaults', () => {
   assert.equal(settings.updates.scope, 'minor');
   assert.equal(settings.resultIdleSeconds, 60);
   assert.equal(settings.logRewardWins, false);
+  assert.deepEqual(settings.videos.map(({ source }) => source), [
+    'bundled:Video/KW42_MMW_Image_DS.mp4',
+    'bundled:Video/KW42_MMW_Image_LoveLanguage_SoMe_9x16_20s.mp4'
+  ]);
   assert.deepEqual(settings.videoAutoplay, { enabled: false, idleSeconds: 300 });
   assert.deepEqual(settings.workingHours, {
     enabled: true,
@@ -25,6 +29,26 @@ test('new installations are unconfigured with safe app defaults', () => {
   });
   assert.deepEqual(settings.rewards.map(({ name, quantity, restockDaily, dailyQuantity }) =>
     [name, quantity, restockDaily, dailyQuantity]), [['Medallion', 70, true, 70]]);
+});
+
+test('saved playlists replace retired bundled clips and keep imported clips and playback settings', () => {
+  const [first, second] = defaultSettings().videos;
+  const imported = { id: 'imported', name: 'Custom clip', source: 'user:videos/custom.mp4', muted: true };
+  const videos = [
+    { ...second, source: 'bundled:Video/SilverCrest. Прави живота ти лесен.mp4', name: 'Custom title' },
+    imported,
+    {
+      ...first,
+      source: 'bundled:Video/Max & Mila’s World • din 12 Octombrie 2026.mp4',
+      name: 'Max & Mila’s World • din 12 Octombrie 2026.mp4',
+      muted: true
+    }
+  ];
+  const migrated = normalizeSettings({ videos });
+
+  assert.deepEqual(migrated.videos, [{ ...second, name: 'Custom title' }, imported, { ...first, muted: true }]);
+  assert.deepEqual(normalizeSettings(migrated).videos, migrated.videos);
+  assert.deepEqual(normalizeSettings({ videos: [] }).videos, []);
 });
 
 test('normalization rejects unsafe media paths and bounds numbers', () => {
