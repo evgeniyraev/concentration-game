@@ -1,6 +1,6 @@
 # Max & Mila’s World
 
-An Electron application for the concentration game. The installed Windows app starts maximized with its native window frame visible. Open the separate Settings window with **Ctrl+,** on Windows or **Command+,** on macOS while the game window is focused. The invisible area in the top-left corner of the home screen also opens Settings. Settings open automatically on a new installation.
+An Electron application for the concentration game. The installed Windows app starts fullscreen without the native window frame. Open the separate Settings window with **Ctrl+,** on Windows or **Command+,** on macOS while the game window is focused. The invisible area in the top-left corner of the home screen also opens Settings. Settings open automatically on a new installation.
 
 ## Develop locally
 
@@ -9,7 +9,7 @@ npm install
 npm start
 ```
 
-The development window is intentionally shown at its configured size. Installed builds start maximized. Both the game and Settings retain their native window frames. Run the tests with `npm test`.
+The development window is intentionally shown at its configured size. Installed builds start fullscreen, while Settings retains its native window frame. Run the tests with `npm test`.
 
 ## Source layout
 
