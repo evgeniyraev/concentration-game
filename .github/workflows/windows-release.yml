@@ -34,11 +34,13 @@ jobs:
 
       - name: Set release version
         shell: pwsh
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
         run: |
           if ($env:GITHUB_REF -like "refs/tags/v*") {
             $requestedVersion = $env:GITHUB_REF_NAME
           } else {
-            $requestedVersion = "${{ inputs.version }}"
+            $requestedVersion = $env:REQUESTED_VERSION
           }
           $version = $requestedVersion.TrimStart('v')
           if ($version -notmatch '^\d+\.\d+\.\d+$') {
