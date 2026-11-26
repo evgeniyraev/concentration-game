@@ -5,7 +5,7 @@ const { BrowserWindow } = require('electron');
 
 function showMainWindowAtStartup(mainWindow, isDevelopment) {
   mainWindow.show();
-  if (!isDevelopment) mainWindow.maximize();
+  if (!isDevelopment) mainWindow.setFullScreen(true);
 }
 
 function createWindowManager({ appRoot, isDevelopment, getUpdateStatus }) {
