@@ -6,8 +6,14 @@ const { dateSerial, timeMinutes, MAX_STOCK } = require('../rewards');
 
 const UPDATE_SCOPES = new Set(['patch', 'minor', 'major']);
 const BUNDLED_VIDEOS = [
-  'Max & Mila’s World • din 12 Octombrie 2026.mp4',
-  'SilverCrest. Прави живота ти лесен.mp4'
+  {
+    name: 'KW42_MMW_Image_DS.mp4',
+    replaces: 'Max & Mila’s World • din 12 Octombrie 2026.mp4'
+  },
+  {
+    name: 'KW42_MMW_Image_LoveLanguage_SoMe_9x16_20s.mp4',
+    replaces: 'SilverCrest. Прави живота ти лесен.mp4'
+  }
 ];
 const MEDALLION = {
   id: 'bundled-reward-8',
@@ -37,7 +43,7 @@ function defaultSettings() {
     gameSeconds: 120,
     resultIdleSeconds: 60,
     rewards: [{ ...MEDALLION }],
-    videos: BUNDLED_VIDEOS.map((name, index) => ({
+    videos: BUNDLED_VIDEOS.map(({ name }, index) => ({
       id: `bundled-video-${index}`,
       name,
       source: `bundled:Video/${name}`,
@@ -147,11 +153,14 @@ function normalizeSettings(value) {
     };
   }).filter(Boolean) : defaults.rewards;
   const videos = Array.isArray(input.videos) ? input.videos.slice(0, 100).map((video) => {
-    const source = safeSource(video?.source, 'video');
-    if (!source) return null;
+    const savedSource = safeSource(video?.source, 'video');
+    if (!savedSource) return null;
+    const replacement = BUNDLED_VIDEOS.find(({ replaces }) => savedSource === `bundled:Video/${replaces}`);
+    const source = replacement ? `bundled:Video/${replacement.name}` : savedSource;
+    const savedName = replacement && video.name === replacement.replaces ? replacement.name : video.name;
     return {
       id: typeof video.id === 'string' && video.id ? video.id.slice(0, 100) : id(),
-      name: name(video.name, path.basename(source)),
+      name: name(savedName, path.basename(source)),
       source,
       muted: video.muted === true
     };

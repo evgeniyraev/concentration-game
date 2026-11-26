@@ -3,6 +3,11 @@
 const path = require('node:path');
 const { BrowserWindow } = require('electron');
 
+function showMainWindowAtStartup(mainWindow, isDevelopment) {
+  mainWindow.show();
+  if (!isDevelopment) mainWindow.maximize();
+}
+
 function createWindowManager({ appRoot, isDevelopment, getUpdateStatus }) {
   let mainWindow;
   let settingsWindow;
@@ -29,8 +34,7 @@ function createWindowManager({ appRoot, isDevelopment, getUpdateStatus }) {
     });
     mainWindow.loadFile(path.join(appRoot, 'src', 'renderer', 'game', 'index.html'));
     mainWindow.once('ready-to-show', () => {
-      if (!isDevelopment) mainWindow.maximize();
-      mainWindow.show();
+      showMainWindowAtStartup(mainWindow, isDevelopment);
     });
     mainWindow.on('closed', () => {
       mainWindow = null;
@@ -119,4 +123,4 @@ function createWindowManager({ appRoot, isDevelopment, getUpdateStatus }) {
   };
 }
 
-module.exports = { createWindowManager };
+module.exports = { createWindowManager, showMainWindowAtStartup };

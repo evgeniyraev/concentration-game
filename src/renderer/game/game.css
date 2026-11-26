@@ -160,11 +160,3 @@ video {
   background: black;
   object-fit: contain;
 }
-
-.hot.video-mute {
-  border: 2px solid #fffaf0;
-  border-radius: 24px;
-  color: white;
-  background: #1d1b19e6;
-  font: 700 40px system-ui, sans-serif;
-}
