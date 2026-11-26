@@ -1,6 +1,6 @@
 {
   "name": "max-mila-memory-game",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Max & Mila's World concentration game kiosk",
   "main": "src/main/index.js",
   "author": "Max & Mila's World",
