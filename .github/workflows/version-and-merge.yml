@@ -5,6 +5,7 @@ on:
     types: [labeled]
 
 permissions:
+  actions: write
   contents: write
   pull-requests: write
 
@@ -151,7 +152,8 @@ jobs:
               fi
             fi
 
-            echo "PR is not mergeable yet; waiting for required checks or reviews"
+            printf 'GitHub merge response: %s\n' "${response//$'\n'/ }"
+            echo "Retrying the squash merge in 15 seconds"
             sleep 15
           done
 
@@ -208,3 +210,25 @@ jobs:
             git -C automation tag "$RELEASE_TAG" "$MERGE_SHA"
             git -C automation push origin "refs/tags/$RELEASE_TAG"
           fi
+
+      - name: Start Windows release for the tag
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          if draft="$(gh release view "$RELEASE_TAG" --repo "$REPOSITORY" --json isDraft --jq '.isDraft' 2>/dev/null)"; then
+            if [[ "$draft" == "true" ]]; then
+              echo "A draft release already exists for $RELEASE_TAG and needs to be published" >&2
+              exit 1
+            fi
+            echo "A published release already exists for $RELEASE_TAG"
+            exit 0
+          fi
+
+          # A tag pushed using GITHUB_TOKEN does not trigger a push workflow.
+          gh workflow run windows-release.yml --repo "$REPOSITORY" --ref "$RELEASE_TAG" \
+            --raw-field "version=$VERSION"

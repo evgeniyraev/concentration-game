@@ -21,14 +21,11 @@ The development window is intentionally shown at its configured size. Installed 
 
 ## Build and release for Windows
 
-The workflow at `.github/workflows/windows-release.yml` runs on Windows and always produces a published GitHub Release plus a workflow artifact. Start it manually and enter a new `MAJOR.MINOR.PATCH` version, or push a semantic-version tag:
+Create the `ready-to-merge` repository label once under **Issues → Labels**, and enable squash merging under **Settings → General**. After reviewing a PR targeting `main` from a same-repository `fix/*` or `feature/*` branch, apply the label while the PR is open. The merge workflow bumps the version, squash-merges the PR, tags the resulting commit, and starts the Windows release workflow on that tag. Apply `version:major` before `ready-to-merge` when a major release is intended.
 
-```sh
-git tag v1.0.1
-git push origin v1.0.1
-```
+The workflow at `.github/workflows/windows-release.yml` runs on Windows and produces a published GitHub Release plus a workflow artifact. If a tag exists and the release workflow did not run, use **Actions → Build Windows application → Run workflow** and select the tag. Enter the matching `MAJOR.MINOR.PATCH` version when prompted.
 
-The manual input or tag supplies the packaged application version. Tags must have the form `vMAJOR.MINOR.PATCH`. The repository must allow GitHub Actions to create releases; the workflow declares `contents: write` and uses the built-in `GITHUB_TOKEN`. The repository needs to be public for unauthenticated installed clients to download updates from GitHub Releases. Use a new version for every run so release assets are not overwritten.
+The manual input or tag supplies the packaged application version. Tags must have the form `vMAJOR.MINOR.PATCH`. The repository must allow GitHub Actions to create releases. The repository needs to be public for unauthenticated installed clients to download updates from GitHub Releases. Use a new version for each release so release assets are not overwritten.
 
 The updater checks ten seconds after launch and then every four hours. When the latest release is within the configured patch/minor/major policy, it downloads it and restarts the app to install it. GitHub’s latest-release endpoint exposes one latest release, so a release outside the selected compatibility range is ignored rather than searching older releases.
 
