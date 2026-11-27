@@ -1,0 +1,56 @@
+name: Refresh approved PR versions
+
+on:
+  workflow_run:
+    workflows: [Signal approved PR review]
+    types: [completed]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+  pull-requests: read
+
+jobs:
+  refresh:
+    if: >-
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'pull_request_review' &&
+       github.event.workflow_run.head_repository.full_name == github.repository &&
+       github.event.workflow_run.head_branch != '') ||
+      (github.event_name != 'workflow_run' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: main-version-and-merge
+      queue: max
+    steps:
+      - name: Confirm the approval job ran
+        id: review
+        if: github.event_name == 'workflow_run'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+        run: |
+          set -euo pipefail
+          approved="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/attempts/$RUN_ATTEMPT/jobs" \
+            --jq 'any(.jobs[]; .name == "approved" and .conclusion == "success")')"
+          printf 'approved=%s\n' "$approved" >> "$GITHUB_OUTPUT"
+
+      # A review workflow can use PR code. Use only its GitHub-provided branch
+      # metadata, recheck approval through the API, and run scripts from main.
+      - uses: actions/checkout@v4
+        if: github.event_name != 'workflow_run' || steps.review.outputs.approved == 'true'
+        with:
+          ref: main
+
+      - name: Check and correct approved PR versions
+        if: github.event_name != 'workflow_run' || steps.review.outputs.approved == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REVIEW_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: bash .github/scripts/refresh-pr-versions.sh

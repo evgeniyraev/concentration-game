@@ -9,12 +9,6 @@ permissions:
   contents: write
   pull-requests: write
 
-# All version calculations and merges into main share this lock. A later PR only
-# calculates its version after the preceding PR has been merged and tagged.
-concurrency:
-  group: main-version-and-merge
-  cancel-in-progress: false
-
 jobs:
   version-merge-tag:
     if: >-
@@ -22,6 +16,11 @@ jobs:
       github.event.pull_request.base.ref == 'main'
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    # Share the queue with review-based version refreshes so neither workflow
+    # can change a PR head while the other is merging it.
+    concurrency:
+      group: main-version-and-merge
+      queue: max
 
     steps:
       # This checkout supplies trusted automation code from main. PR code is
@@ -76,7 +75,7 @@ jobs:
           fetch-depth: 0
           path: pr
 
-      - name: Calculate and write the version
+      - name: Calculate and commit the version to the PR
         if: steps.pr.outputs.merged != 'true'
         id: version
         shell: bash
@@ -85,34 +84,12 @@ jobs:
           LABELS: ${{ steps.pr.outputs.labels }}
         run: |
           set -euo pipefail
-          node automation/.github/scripts/prepare-pr-version.cjs \
+          bash automation/.github/scripts/update-pr-version.sh \
             automation/package.json \
             pr \
             "$HEAD_REF" \
             "$LABELS" \
             "$GITHUB_OUTPUT"
-
-      - name: Commit the version to the PR
-        if: steps.pr.outputs.merged != 'true'
-        id: commit
-        shell: bash
-        env:
-          HEAD_REF: ${{ steps.pr.outputs.head_ref }}
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          set -euo pipefail
-          git -C pr config user.name "github-actions[bot]"
-          git -C pr config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git -C pr add package.json package-lock.json
-
-          if git -C pr diff --cached --quiet; then
-            echo "Version $VERSION is already present on the PR"
-          else
-            git -C pr commit -m "chore(release): bump version to $VERSION"
-            git -C pr push origin "HEAD:refs/heads/$HEAD_REF"
-          fi
-
-          printf 'head_sha=%s\n' "$(git -C pr rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Squash merge when branch protection permits it
         if: steps.pr.outputs.merged != 'true'
@@ -120,7 +97,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          EXPECTED_HEAD: ${{ steps.commit.outputs.head_sha }}
+          EXPECTED_HEAD: ${{ steps.version.outputs.head_sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPOSITORY: ${{ github.repository }}
         run: |
@@ -232,3 +209,11 @@ jobs:
           # A tag pushed using GITHUB_TOKEN does not trigger a push workflow.
           gh workflow run windows-release.yml --repo "$REPOSITORY" --ref "$RELEASE_TAG" \
             --raw-field "version=$VERSION"
+
+      - name: Refresh approved PRs after main advances
+        if: ${{ !cancelled() && (steps.merge.outputs.merge_sha != '' || steps.pr.outputs.merged == 'true') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # A merge using GITHUB_TOKEN does not trigger the push workflow.
+          gh workflow run refresh-pr-versions.yml --repo "$GITHUB_REPOSITORY" --ref main
