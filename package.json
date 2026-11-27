@@ -1,6 +1,6 @@
 {
   "name": "max-mila-memory-game",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "An offline Electron kiosk application for the Max & Mila's World concentration game",
   "main": "src/main/index.js",
   "author": "Max & Mila's World",
