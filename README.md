@@ -23,6 +23,8 @@ The development window is intentionally shown at its configured size. Installed 
 
 Create the `ready-to-merge` repository label once under **Issues → Labels**, and enable squash merging under **Settings → General**. After reviewing a PR targeting `main` from a same-repository `fix/*` or `feature/*` branch, apply the label while the PR is open. The merge workflow bumps the version, squash-merges the PR, tags the resulting commit, and starts the Windows release workflow on that tag. Apply `version:major` before `ready-to-merge` when a major release is intended.
 
+An approving review checks the PR’s package version against `main`. When `main` advances, the workflow repeats that check for all open, approved PRs. It commits only when a version field needs correcting. If the bot’s commit clears an approval under your branch rules, approve the new head. If GitHub reports a merge conflict, sync the PR branch with `main` before release.
+
 The workflow at `.github/workflows/windows-release.yml` runs on Windows and produces a published GitHub Release plus a workflow artifact. If a tag exists and the release workflow did not run, use **Actions → Build Windows application → Run workflow** and select the tag. Enter the matching `MAJOR.MINOR.PATCH` version when prompted.
 
 The manual input or tag supplies the packaged application version. Tags must have the form `vMAJOR.MINOR.PATCH`. The repository must allow GitHub Actions to create releases. The repository needs to be public for unauthenticated installed clients to download updates from GitHub Releases. Use a new version for each release so release assets are not overwritten.

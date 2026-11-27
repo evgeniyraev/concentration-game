@@ -16,7 +16,12 @@ if (!basePackagePath || !worktreePath || !branch || !labelsJson || !outputPath) 
   );
 }
 
-const readJson = (filePath) => JSON.parse(fs.readFileSync(filePath, 'utf8'));
+function readJson(filePath) {
+  if (!fs.lstatSync(filePath).isFile()) {
+    throw new Error(`Expected a regular file: ${filePath}`);
+  }
+  return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+}
 const writeJson = (filePath, value) => {
   fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`);
 };
@@ -28,10 +33,13 @@ const packageManifest = readJson(packagePath);
 const lockManifest = readJson(lockPath);
 const bump = bumpForPullRequest(branch, JSON.parse(labelsJson));
 const version = bumpVersion(basePackage.version, bump);
+const packageNeedsUpdate = packageManifest.version !== version;
+const lockNeedsUpdate = lockManifest.version !== version || lockManifest.packages?.['']?.version !== version;
 
 setManifestVersion(packageManifest, lockManifest, version);
-writeJson(packagePath, packageManifest);
-writeJson(lockPath, lockManifest);
+if (packageNeedsUpdate) writeJson(packagePath, packageManifest);
+if (lockNeedsUpdate) writeJson(lockPath, lockManifest);
 
 fs.appendFileSync(outputPath, `bump=${bump}\nversion=${version}\ntag=v${version}\n`);
-console.log(`Prepared ${bump} version ${version} from main version ${basePackage.version}`);
+console.error(`Checked ${bump} version ${version} from main version ${basePackage.version}`);
+console.log(version);
